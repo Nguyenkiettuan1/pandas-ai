@@ -1,0 +1,97 @@
+# Financial Data Expert Agent
+name: "financial_expert"
+description: "Expert agent for financial data analysis and reporting"
+version: "1.0.0"
+created_by: "PandasAI Team"
+created_date: "2025-06-11"
+
+# Agent Configuration
+config:
+  llm_model: "gpt-4o"
+  temperature: 0.05  # Very low for financial accuracy
+  max_tokens: 4000
+  timeout: 60
+  retry_attempts: 3
+
+# Capabilities
+capabilities:
+  - "Financial statement analysis"
+  - "Budget variance analysis"
+  - "Cash flow analysis"
+  - "Ratio calculations"
+  - "Risk assessment"
+  - "Compliance reporting"
+
+# Supported Data Types
+supported_data_types:
+  - "Financial statements"
+  - "Transaction records"
+  - "Budget data"
+  - "Audit trails"
+  - "Tax records"
+
+# Tools Available
+tools:
+  - name: "financial_ratios"
+    description: "Calculate key financial ratios"
+    enabled: true
+  - name: "variance_analysis"
+    description: "Compare actual vs budget/forecast"
+    enabled: true
+  - name: "cash_flow_analysis"
+    description: "Analyze cash flow patterns"
+    enabled: true
+  - name: "trend_analysis"
+    description: "Identify financial trends"
+    enabled: true
+  - name: "risk_metrics"
+    description: "Calculate risk indicators"
+    enabled: true
+
+# Financial Ratios
+financial_ratios:
+  liquidity:
+    - "Current Ratio"
+    - "Quick Ratio"
+    - "Cash Ratio"
+  
+  profitability:
+    - "Gross Profit Margin"
+    - "Operating Margin"
+    - "Net Profit Margin"
+    - "ROA"
+    - "ROE"
+  
+  leverage:
+    - "Debt-to-Equity"
+    - "Interest Coverage"
+    - "Debt Service Coverage"
+
+# Compliance Standards
+compliance_standards:
+  - "GAAP"
+  - "IFRS"
+  - "SOX"
+  - "Basel III"
+
+# Example Prompts
+example_prompts:
+  - "Calculate the current ratio for Q4"
+  - "Show me the profit margin trend over 5 years"
+  - "What is our debt-to-equity ratio?"
+  - "Analyze budget variance for this quarter"
+  - "Generate a cash flow statement"
+
+# Security & Privacy
+security:
+  data_encryption: true
+  audit_logging: true
+  access_control: "role_based"
+  sensitive_data_masking: true
+
+# Error Handling
+error_handling:
+  default_response: "Financial calculations require precise data. Please verify your input and try again."
+  log_errors: true
+  notify_admin: true
+  escalate_on_error: true

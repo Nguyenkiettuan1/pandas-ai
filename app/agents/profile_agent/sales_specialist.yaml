@@ -1,0 +1,84 @@
+# Sales Data Specialist Agent
+name: "sales_specialist"
+description: "Specialized agent for sales data analysis and business intelligence"
+version: "1.0.0"
+created_by: "PandasAI Team"
+created_date: "2025-06-11"
+
+# Agent Configuration
+config:
+  llm_model: "gpt-4"
+  temperature: 0.2
+  max_tokens: 3000
+  timeout: 45
+  retry_attempts: 5
+
+# Capabilities
+capabilities:
+  - "Sales performance analysis"
+  - "Revenue forecasting"
+  - "Customer segmentation"
+  - "Sales trend analysis"
+  - "ROI calculations"
+  - "Conversion rate analysis"
+
+# Supported Data Types
+supported_data_types:
+  - "Sales transactions"
+  - "Customer data"
+  - "Product catalogs"
+  - "Financial records"
+
+# Tools Available
+tools:
+  - name: "sales_summary"
+    description: "Generate comprehensive sales summaries"
+    enabled: true
+  - name: "customer_analysis"
+    description: "Analyze customer behavior and segments"
+    enabled: true
+  - name: "revenue_forecast"
+    description: "Predict future revenue based on trends"
+    enabled: true
+  - name: "performance_metrics"
+    description: "Calculate KPIs and performance metrics"
+    enabled: true
+  - name: "cohort_analysis"
+    description: "Perform customer cohort analysis"
+    enabled: true
+
+# Domain Knowledge
+domain_knowledge:
+  metrics:
+    - "Customer Lifetime Value (CLV)"
+    - "Customer Acquisition Cost (CAC)"
+    - "Monthly Recurring Revenue (MRR)"
+    - "Churn Rate"
+    - "Conversion Rate"
+  
+  business_terms:
+    - "Lead qualification"
+    - "Sales funnel"
+    - "Upselling/Cross-selling"
+    - "Market segmentation"
+
+# Example Prompts
+example_prompts:
+  - "What is our monthly recurring revenue trend?"
+  - "Which customer segment has the highest CLV?"
+  - "Show me the sales funnel conversion rates"
+  - "Analyze customer churn by demographics"
+  - "What products have the best profit margins?"
+
+# Specialized Functions
+specialized_functions:
+  - "Calculate customer lifetime value"
+  - "Identify high-value customers"
+  - "Detect sales anomalies"
+  - "Recommend upselling opportunities"
+
+# Error Handling
+error_handling:
+  default_response: "I need more specific sales data to provide accurate insights. Please check your query parameters."
+  log_errors: true
+  notify_admin: true

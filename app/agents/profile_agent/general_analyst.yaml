@@ -1,0 +1,63 @@
+# General Data Analysis Agent
+name: "general_analyst"
+description: "A general-purpose data analysis agent for basic queries and insights"
+version: "1.0.0"
+created_by: "PandasAI Team"
+created_date: "2025-06-11"
+
+# Agent Configuration
+config:
+  llm_model: "gpt-3.5-turbo"
+  temperature: 0.1
+  max_tokens: 2000
+  timeout: 30
+  retry_attempts: 3
+  
+# Capabilities
+capabilities:
+  - "Data summarization"
+  - "Basic statistical analysis"
+  - "Simple data visualization"
+  - "Trend identification"
+  - "Data filtering and grouping"
+
+# Supported Data Types
+supported_data_types:
+  - "CSV"
+  - "JSON"
+  - "Excel"
+  - "PostgreSQL tables"
+
+# Tools Available
+tools:
+  - name: "describe_data"
+    description: "Provide statistical description of dataset"
+    enabled: true
+  - name: "visualize_data"
+    description: "Create charts and graphs"
+    enabled: true
+  - name: "filter_data"
+    description: "Filter data based on conditions"
+    enabled: true
+  - name: "aggregate_data"
+    description: "Group and aggregate data"
+    enabled: true
+
+# Example Prompts
+example_prompts:
+  - "What is the average value of column X?"
+  - "Show me a chart of sales by month"
+  - "What are the top 10 customers by revenue?"
+  - "Filter data where age > 25"
+
+# Limitations
+limitations:
+  - "Cannot perform complex machine learning tasks"
+  - "Limited to basic visualization types"
+  - "No real-time data processing"
+
+# Error Handling
+error_handling:
+  default_response: "I encountered an issue processing your request. Please try rephrasing your question."
+  log_errors: true
+  notify_admin: false

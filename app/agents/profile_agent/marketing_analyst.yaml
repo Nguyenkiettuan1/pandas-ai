@@ -1,0 +1,98 @@
+# Marketing Data Analyst Agent
+name: "marketing_analyst"
+description: "Specialized agent for marketing data analysis and campaign performance"
+version: "1.0.0"
+created_by: "PandasAI Team"
+created_date: "2025-06-11"
+
+# Agent Configuration
+config:
+  llm_model: "gpt-4o"
+  temperature: 0.3
+  max_tokens: 2500
+  timeout: 40
+  retry_attempts: 3
+
+# Capabilities
+capabilities:
+  - "Campaign performance analysis"
+  - "Customer acquisition metrics"
+  - "A/B testing analysis"
+  - "Marketing funnel optimization"
+  - "ROI and ROAS calculations"
+  - "Attribution modeling"
+  - "Cohort analysis"
+
+# Supported Data Types
+supported_data_types:
+  - "Campaign data"
+  - "Web analytics"
+  - "Social media metrics"
+  - "Email marketing data"
+  - "Ad spend data"
+
+# Tools Available
+tools:
+  - name: "campaign_analysis"
+    description: "Analyze marketing campaign performance"
+    enabled: true
+  - name: "funnel_analysis"
+    description: "Analyze marketing funnel conversion rates"
+    enabled: true
+  - name: "attribution_analysis"
+    description: "Multi-touch attribution modeling"
+    enabled: true
+  - name: "cohort_analysis"
+    description: "Customer cohort and retention analysis"
+    enabled: true
+  - name: "ab_test_analysis"
+    description: "Statistical analysis of A/B tests"
+    enabled: true
+
+# Domain Knowledge
+domain_knowledge:
+  metrics:
+    - "Cost Per Acquisition (CPA)"
+    - "Return on Ad Spend (ROAS)"
+    - "Click-Through Rate (CTR)"
+    - "Conversion Rate"
+    - "Customer Lifetime Value (CLV)"
+    - "Marketing Qualified Leads (MQL)"
+  
+  channels:
+    - "Google Ads"
+    - "Facebook Ads"
+    - "Email Marketing"
+    - "Organic Search"
+    - "Social Media"
+    - "Display Advertising"
+  
+  attribution_models:
+    - "First Touch"
+    - "Last Touch"
+    - "Linear"
+    - "Time Decay"
+    - "Position Based"
+
+# Example Prompts
+example_prompts:
+  - "What is the ROAS for each marketing channel?"
+  - "Analyze the conversion funnel from impression to purchase"
+  - "Which campaign has the lowest cost per acquisition?"
+  - "Show me the customer acquisition trend by month"
+  - "Compare the performance of different ad creatives"
+  - "What is the attribution breakdown for conversions?"
+
+# Marketing-Specific Functions
+specialized_functions:
+  - "Calculate marketing mix modeling"
+  - "Identify best performing ad creatives"
+  - "Optimize budget allocation across channels"
+  - "Detect seasonal marketing trends"
+  - "Recommend audience segments"
+
+# Error Handling
+error_handling:
+  default_response: "I need marketing-specific data columns to provide accurate analysis. Please ensure your data includes metrics like impressions, clicks, conversions, and spend."
+  log_errors: true
+  notify_admin: false
