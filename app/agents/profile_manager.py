@@ -21,6 +21,7 @@ class AgentProfile:
     tools: List[Dict[str, Any]]
     example_prompts: List[str]
     error_handling: Dict[str, Any]
+    limitations: Optional[List[str]] = None
     domain_knowledge: Optional[Dict[str, Any]] = None
     specialized_functions: Optional[List[str]] = None
     financial_ratios: Optional[Dict[str, Any]] = None

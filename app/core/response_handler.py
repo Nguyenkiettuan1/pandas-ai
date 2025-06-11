@@ -20,6 +20,7 @@ class ResponseType(Enum):
     TOOL_EXECUTION = "tool_execution"
     QUERY_HISTORY = "query_history"
     VALIDATION = "validation"
+    AGENT_SUGGESTIONS = "agent_suggestions" 
     GENERAL = "general"
 
 class HTTPStatusCode(Enum):
@@ -319,3 +320,35 @@ class ResponseHandler:
             error_info = response.get("error", {})
             return error_info.get("error_message", response.get("message"))
         return None
+    
+    @staticmethod
+    def extract_data_safely(response: Dict[str, Any]) -> Any:
+        """Extract data from response safely"""
+        if ResponseHandler.is_success(response):
+            return response.get("data", {})
+        return None
+    
+    @staticmethod
+    def create_history_response(
+        queries: List[Dict[str, Any]],
+        dataset_id: Optional[int] = None,
+        success: bool = True,
+        error: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Create a query history response"""
+        if success and error is None:
+            return ResponseHandler.create_success_response(
+                data=queries,
+                message=f"Retrieved {len(queries)} query records",
+                response_type=ResponseType.QUERY_HISTORY,
+                metadata={
+                    "query_count": len(queries),
+                    "dataset_id": dataset_id
+                }
+            )
+        else:
+            return ResponseHandler.create_error_response(
+                error=error,
+                message="Failed to retrieve query history",
+                response_type=ResponseType.QUERY_HISTORY
+            )

@@ -28,6 +28,13 @@ class Settings(BaseSettings):
     
     # AI/ML settings
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
+    MODEL_DEPLOYMENT: str = os.getenv("MODEL_DEPLOYMENT", "openai")
+    # PandasAI Cloud settings
+    PANDASAI_API_KEY: str = os.getenv("PANDASAI_API_KEY", "")
+    PANDASAI_CLOUD_URL: str = os.getenv("PANDASAI_CLOUD_URL", "https://agi.pandas-ai.com")
+    USE_PANDASAI_CLOUD: bool = os.getenv("USE_PANDASAI_CLOUD", "False").lower() == "true"
+    
+    
     
     class Config:
         env_file = ".env"

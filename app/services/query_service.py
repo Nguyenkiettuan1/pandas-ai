@@ -1,6 +1,7 @@
 from typing import List, Dict, Any
 from sqlalchemy.orm import Session
 from app.models.query import Query
+from app.models.dataset import Dataset  # Add this import
 from app.agents.pandas_agent import PandasAIAgent
 from app.core.logging_config import get_logger
 from app.core.response_handler import ResponseHandler, ResponseType
@@ -82,8 +83,7 @@ class QueryService:
                     "id": q.id,
                     "question": q.question,
                     "result": q.result,
-                    "execution_time": q.execution_time,
-                    "dataset_id": q.dataset_id,
+                    "execution_time": q.execution_time,                "dataset_id": q.dataset_id,
                     "created_at": q.created_at
                 }
                 for q in queries
@@ -92,7 +92,7 @@ class QueryService:
             return ResponseHandler.create_history_response(
                 queries=query_data,
                 dataset_id=dataset_id,
-                limit=limit
+                success=True
             )
             
         except Exception as e:
@@ -301,3 +301,23 @@ class QueryService:
                 message="Failed to retrieve query statistics",
                 response_type=ResponseType.GENERAL
             )
+    
+    async def get_dataset_by_id(self, dataset_id: int) -> Dict[str, Any]:
+        """Get dataset information by ID"""
+        try:
+            dataset = self.db.query(Dataset).filter(Dataset.id == dataset_id).first()
+            
+            if not dataset:
+                return None
+            
+            return {
+                "id": dataset.id,
+                "name": dataset.name,
+                "description": dataset.description,
+                "table_name": dataset.table_name,
+                "created_at": dataset.created_at
+            }
+            
+        except Exception as e:
+            logger.error(f"Error getting dataset {dataset_id}: {e}")
+            return None

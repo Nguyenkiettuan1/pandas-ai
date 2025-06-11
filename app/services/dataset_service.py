@@ -235,25 +235,95 @@ class DatasetService:
         name: str, 
         csv_file_path: str, 
         description: str = None
-    ) -> Dataset:
+    ) -> Dict[str, Any]:
         """Load CSV file data to create a dataset"""
         try:
-            # Read CSV file
+            logger.info(f"Loading CSV file to create dataset: {name}")
+            
+            # Read CSV file to validate it
             df = pd.read_csv(csv_file_path)
+            logger.info(f"CSV file loaded successfully, shape: {df.shape}")
             
             # Create dataset record
-            dataset = await self.create_dataset(
+            dataset_response = await self.create_dataset(
                 name=name,
                 description=description,
                 file_path=csv_file_path,
-                table_name=name.lower().replace(" ", "_")
+                table_name=name.lower().replace(" ", "_").replace("-", "_")
             )
             
+            if not ResponseHandler.is_success(dataset_response):
+                return dataset_response
+            
             # Here you would typically load the data into PostgreSQL
-            # For now, we'll just return the dataset
+            # For now, we'll just return the dataset creation response
             # In production, you'd use pandas.to_sql() or similar
             
-            return dataset
+            logger.info(f"Dataset created successfully from CSV: {name}")
+            return dataset_response
             
         except Exception as e:
-            raise Exception(f"Failed to load CSV: {str(e)}")
+            logger.error(f"Failed to load CSV to dataset: {e}")
+            return ResponseHandler.create_error_response(
+                error=e,
+                message=f"Failed to load CSV file: {str(e)}",
+                response_type=ResponseType.GENERAL
+            )
+    
+    async def get_dataset_insights(self, dataset_id: int) -> Dict[str, Any]:
+        """Get insights for a dataset"""
+        try:
+            logger.info(f"Getting insights for dataset {dataset_id}")
+            
+            # First, validate the dataset exists
+            dataset_response = await self.get_dataset(dataset_id)
+            if not ResponseHandler.is_success(dataset_response):
+                return dataset_response
+            
+            dataset_data = dataset_response['data']
+            
+            # For now, provide basic dataset information as insights
+            # In production, you would analyze the actual data
+            insights = {
+                "dataset_info": {
+                    "id": dataset_data['id'],
+                    "name": dataset_data['name'],
+                    "description": dataset_data['description'],
+                    "table_name": dataset_data['table_name'],
+                    "created_at": dataset_data['created_at']
+                },
+                "basic_insights": {
+                    "dataset_exists": True,
+                    "table_configured": dataset_data['table_name'] is not None,
+                    "has_description": dataset_data['description'] is not None,
+                    "status": "active" if dataset_data['is_active'] else "inactive"
+                },
+                "recommendations": [
+                    "Use natural language queries to explore this dataset",
+                    "Consider using different agent profiles for specialized analysis",
+                    "Check query history to see previous analysis patterns"
+                ]
+            }
+            
+            # TODO: In production, add actual data analysis here:
+            # - Row count, column count
+            # - Data types analysis
+            # - Missing values analysis
+            # - Basic statistics
+            # - Data quality metrics
+            
+            logger.info(f"Generated insights for dataset {dataset_id}")
+            
+            return ResponseHandler.create_dataset_insights_response(
+                insights=insights,
+                dataset_id=dataset_id,
+                success=True
+            )
+            
+        except Exception as e:
+            logger.error(f"Error getting dataset insights for {dataset_id}: {e}")
+            return ResponseHandler.create_error_response(
+                error=e,
+                message="Failed to generate dataset insights",
+                response_type=ResponseType.DATASET_INSIGHT
+            )

@@ -7,9 +7,9 @@ created_date: "2025-06-11"
 
 # Agent Configuration
 config:
-  llm_model: "gpt-4o"
+  llm_model: "gpt-4"
   temperature: 0.3
-  max_tokens: 2500
+  max_tokens: 2000
   timeout: 40
   retry_attempts: 3
 

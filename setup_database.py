@@ -350,7 +350,7 @@ class DatabaseSetup:
             print("📚 Creating dataset records for AI agent...")
             
             # Connection string cho local database
-            connection_string = f"postgresql://{settings.DB_USER}:{settings.DB_PASSWORD}@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
+            connection_string = settings
             
             datasets = [
                 Dataset(
