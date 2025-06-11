@@ -1,10 +1,14 @@
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional, Union
 from sqlalchemy.orm import Session
+from uuid import UUID
 from app.models.query import Query
 from app.models.dataset import Dataset  # Add this import
 from app.agents.pandas_agent import PandasAIAgent
+from app.agents.agent_router import agent_router  # Add agent router
 from app.core.logging_config import get_logger
 from app.core.response_handler import ResponseHandler, ResponseType
+from app.services.context_service import ContextService  # Add context service
+from app.services.dataset_selection_service import DatasetSelectionService  # Add selection service
 import pandas as pd
 import time
 
@@ -14,7 +18,176 @@ class QueryService:
     def __init__(self, db: Session):
         self.db = db
         self.pandas_agent = PandasAIAgent(db)
-        logger.debug("QueryService initialized")
+        self.context_service = ContextService(db)  # Add context service
+        self.selection_service = DatasetSelectionService(db)  # Add selection service
+        logger.debug("QueryService initialized with context support")
+
+    async def process_context_aware_query(
+        self,
+        question: str,
+        dataset_id: Optional[int] = None,
+        session_id: Optional[Union[str, UUID]] = None,
+        workspace_id: Optional[Union[str, UUID]] = None,
+        auto_select: bool = True,
+        max_datasets: int = 3,
+        context_hint: Optional[str] = None,
+        profile_name: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Process a query with flexible context support
+        
+        Args:
+            question: Natural language question
+            dataset_id: Explicit dataset ID (legacy mode)
+            session_id: Session context for dataset selection
+            workspace_id: Workspace context for dataset selection
+            auto_select: Enable automatic dataset selection
+            max_datasets: Maximum datasets to use in auto-selection
+            context_hint: Hint for dataset selection
+            profile_name: Agent profile to use
+            
+        Returns:
+            Enhanced query response with context information
+        """
+        start_time = time.time()
+        logger.info(f"Processing context-aware query: '{question[:50]}...'")
+        
+        try:
+            # Step 1: Resolve query context and get available datasets
+            context_resolution_start = time.time()
+            
+            if dataset_id:
+                # Legacy mode - explicit dataset
+                context_info = {
+                    "strategy": "explicit",
+                    "available_datasets": [dataset_id],
+                    "default_dataset": dataset_id,
+                    "context_metadata": {}
+                }
+                context_type = "explicit"
+            else:
+                # Context-aware mode
+                context_response = await self.context_service.resolve_query_context(
+                    session_id=session_id,
+                    workspace_id=workspace_id,
+                    dataset_id=dataset_id
+                )
+                
+                if not ResponseHandler.is_success(context_response):
+                    return context_response
+                
+                context_info = ResponseHandler.extract_data_safely(context_response)
+                
+                if session_id:
+                    context_type = "session"
+                elif workspace_id:
+                    context_type = "workspace"
+                else:
+                    context_type = "auto"
+            
+            context_resolution_time = time.time() - context_resolution_start
+            
+            # Step 2: Auto-select datasets if needed and enabled
+            available_datasets = context_info.get("available_datasets", [])
+            
+            if not available_datasets and auto_select:
+                # No context provided, try to find all available datasets
+                all_datasets = self.db.query(Dataset).filter(Dataset.is_active == True).all()
+                available_datasets = [d.id for d in all_datasets]
+                context_info["strategy"] = "auto_discovery"
+                context_type = "auto_discovery"
+            
+            if not available_datasets:
+                return ResponseHandler.create_error_response(
+                    error="No datasets available",
+                    message="No datasets available for query processing",
+                    response_type=ResponseType.VALIDATION_ERROR
+                )
+            
+            # Step 3: Intelligent dataset selection (if multiple datasets available)
+            selected_datasets = available_datasets
+            dataset_selection_metadata = None
+            
+            if len(available_datasets) > 1 and auto_select:
+                selection_response = await self.selection_service.auto_select_datasets(
+                    question=question,
+                    available_datasets=available_datasets,
+                    max_datasets=max_datasets,
+                    context_hint=context_hint
+                )
+                
+                if ResponseHandler.is_success(selection_response):
+                    selection_data = ResponseHandler.extract_data_safely(selection_response)
+                    selected_datasets = selection_data.get("selected_datasets", available_datasets[:max_datasets])
+                    dataset_selection_metadata = selection_data.get("selection_metadata")
+                    logger.info(f"Auto-selected {len(selected_datasets)} datasets: {selected_datasets}")
+                else:
+                    # Fallback to using default dataset or first few available
+                    default_dataset = context_info.get("default_dataset")
+                    if default_dataset and default_dataset in available_datasets:
+                        selected_datasets = [default_dataset]
+                    else:
+                        selected_datasets = available_datasets[:max_datasets]
+                    logger.warning("Dataset auto-selection failed, using fallback selection")
+            
+            # Step 4: Auto-route to appropriate agent profile if not specified
+            if not profile_name:
+                # Use existing validation logic to determine profile
+                validation_result = await self.validate_query_parameters(
+                    question=question,
+                    dataset_id=selected_datasets[0],  # Use first selected dataset for routing
+                    profile_name=None
+                )
+                
+                if ResponseHandler.is_success(validation_result):
+                    validated_data = ResponseHandler.extract_data_safely(validation_result)
+                    profile_name = validated_data.get("validated_profile", "general_analyst")
+                else:
+                    profile_name = "general_analyst"
+            
+            # Step 5: Process the query
+            # For now, use the first selected dataset (can be enhanced for multi-dataset queries)
+            primary_dataset_id = selected_datasets[0]
+            
+            query_result = await self.process_natural_language_query(
+                question=question,
+                dataset_id=primary_dataset_id,
+                session_id=str(session_id) if session_id else None,
+                profile_name=profile_name
+            )
+            
+            # Step 6: Enhance response with context information
+            if ResponseHandler.is_success(query_result):
+                result_data = ResponseHandler.extract_data_safely(query_result)
+                
+                # Add context information to the response
+                enhanced_data = {
+                    **result_data,
+                    "context_type": context_type,
+                    "session_id": session_id,
+                    "workspace_id": workspace_id,
+                    "dataset_selection": dataset_selection_metadata.dict() if dataset_selection_metadata else None,
+                    "selected_datasets": selected_datasets,
+                    "available_datasets": available_datasets,
+                    "context_resolution_time": context_resolution_time,
+                    "total_execution_time": time.time() - start_time
+                }
+                
+                return ResponseHandler.create_success_response(
+                    data=enhanced_data,
+                    message=f"Query processed successfully using {context_type} context",
+                    response_type=ResponseType.QUERY_RESULT
+                )
+            else:
+                return query_result
+                
+        except Exception as e:
+            logger.error(f"Error in context-aware query processing: {e}")
+            return ResponseHandler.create_error_response(
+                error=e,
+                message="Failed to process context-aware query",
+                response_type=ResponseType.QUERY_RESULT
+            )
         
     async def process_natural_language_query(
         self, 
@@ -77,13 +250,13 @@ class QueryService:
             queries = query.order_by(Query.created_at.desc()).limit(limit).all()
             
             logger.info(f"Retrieved {len(queries)} query records")
-            
             query_data = [
                 {
                     "id": q.id,
                     "question": q.question,
                     "result": q.result,
-                    "execution_time": q.execution_time,                "dataset_id": q.dataset_id,
+                    "execution_time": q.execution_time,
+                    "dataset_id": q.dataset_id,
                     "created_at": q.created_at
                 }
                 for q in queries
@@ -164,59 +337,120 @@ class QueryService:
                 execution_time=execution_time
             )
     
+    async def get_agent_suggestions(self, question: str, dataset_id: int) -> Dict[str, Any]:
+        """Get agent suggestions for a question using agent router"""
+        logger.info(f"Getting agent suggestions for question: {question[:50]}...")
+        
+        try:
+            # Get dataset context
+            dataset = await self.get_dataset_by_id(dataset_id)
+            if not dataset:
+                return ResponseHandler.create_error_response(
+                    error=ValueError(f"Dataset {dataset_id} not found"),
+                    message="Dataset not found",
+                    response_type=ResponseType.VALIDATION_ERROR
+                )
+            
+            dataset_context = {
+                'table_name': dataset.get('table_name', ''),
+                'dataset_name': dataset.get('name', ''),
+                'description': dataset.get('description', '')
+            }
+            
+            # Get suggestions from agent router
+            suggestions = agent_router.get_agent_suggestions(question, top_n=5)
+            recommended = agent_router.route_question(question, dataset_context)
+            
+            response_data = {
+                "question": question,
+                "dataset_id": dataset_id,
+                "recommended_agent": recommended.value,
+                "all_suggestions": suggestions,
+                "dataset_context": dataset_context
+            }
+            
+            return ResponseHandler.create_success_response(
+                data=response_data,
+                message="Agent suggestions retrieved successfully",
+                response_type=ResponseType.AGENT_SUGGESTIONS
+            )
+            
+        except Exception as e:
+            logger.error(f"Error getting agent suggestions: {e}")
+            return ResponseHandler.create_error_response(
+                error=e,
+                message="Failed to get agent suggestions",
+                response_type=ResponseType.AGENT_SUGGESTIONS
+            )
+    
+    async def get_dataset_by_id(self, dataset_id: int) -> Dict[str, Any]:
+        """Get dataset information by ID"""
+        try:
+            dataset = self.db.query(Dataset).filter(Dataset.id == dataset_id).first()
+            if not dataset:
+                return None
+            
+            return {
+                "id": dataset.id,
+                "name": dataset.name,
+                "description": dataset.description,
+                "table_name": dataset.table_name,
+                "created_at": dataset.created_at
+            }
+        except Exception as e:
+            logger.error(f"Error getting dataset {dataset_id}: {e}")
+            return None
+    
     async def validate_query_parameters(
         self, 
         question: str, 
         dataset_id: int, 
-        profile_name: str
+        profile_name: str = None
     ) -> Dict[str, Any]:
-        """Validate query parameters before processing"""
+        """Validate query parameters and suggest appropriate agent profile"""
         try:
-            errors = []
-            warnings = []
-            
-            # Validate question
-            if not question or not question.strip():
-                errors.append("Question cannot be empty")
-            elif len(question.strip()) < 5:
-                warnings.append("Question is very short - consider providing more detail")
-            
-            # Validate dataset_id
-            if not isinstance(dataset_id, int) or dataset_id <= 0:
-                errors.append("Dataset ID must be a positive integer")
-            
-            # Validate profile_name
-            valid_profiles = ["general_analyst", "sales_specialist", "marketing_analyst", "financial_expert"]
-            if profile_name not in valid_profiles:
-                warnings.append(f"Profile '{profile_name}' not recognized. Using 'general_analyst'")
-                profile_name = "general_analyst"
-            
-            if errors:
+            # Validate dataset exists
+            dataset = await self.get_dataset_by_id(dataset_id)
+            if not dataset:
                 return ResponseHandler.create_error_response(
-                    error="; ".join(errors),
-                    message="Parameter validation failed",
-                    response_type=ResponseType.VALIDATION
+                    error=ValueError(f"Dataset {dataset_id} not found"),
+                    message="Dataset not found",
+                    response_type=ResponseType.VALIDATION_ERROR
                 )
-            elif warnings:
-                return ResponseHandler.create_warning_response(
-                    data={"validated_profile": profile_name},
-                    message="Parameters validated with warnings",
-                    warnings=warnings,
-                    response_type=ResponseType.VALIDATION
-                )
-            else:
-                return ResponseHandler.create_success_response(
-                    data={"validated_profile": profile_name},
-                    message="All parameters validated successfully",
-                    response_type=ResponseType.VALIDATION
-                )
+            
+            # Remember if we're auto-routing
+            is_auto_routed = profile_name is None
+            
+            # If no profile specified, auto-route
+            if not profile_name:
+                dataset_context = {
+                    'table_name': dataset.get('table_name', ''),
+                    'dataset_name': dataset.get('name', ''),
+                    'description': dataset.get('description', '')
+                }
                 
+                suggested_agent = agent_router.route_question(question, dataset_context)
+                profile_name = suggested_agent.value
+                logger.info(f"Auto-routed to agent: {profile_name}")
+            
+            validation_result = {
+                "validated_profile": profile_name,
+                "dataset_info": dataset,
+                "is_auto_routed": is_auto_routed
+            }
+            
+            return ResponseHandler.create_success_response(
+                data=validation_result,
+                message="Parameters validated successfully",
+                response_type=ResponseType.VALIDATION_SUCCESS
+            )
+            
         except Exception as e:
             logger.error(f"Error validating parameters: {e}")
             return ResponseHandler.create_error_response(
                 error=e,
-                message="Validation process failed",
-                response_type=ResponseType.VALIDATION
+                message="Parameter validation failed",
+                response_type=ResponseType.VALIDATION_ERROR
             )
     
     async def get_service_health(self) -> Dict[str, Any]:
@@ -301,23 +535,3 @@ class QueryService:
                 message="Failed to retrieve query statistics",
                 response_type=ResponseType.GENERAL
             )
-    
-    async def get_dataset_by_id(self, dataset_id: int) -> Dict[str, Any]:
-        """Get dataset information by ID"""
-        try:
-            dataset = self.db.query(Dataset).filter(Dataset.id == dataset_id).first()
-            
-            if not dataset:
-                return None
-            
-            return {
-                "id": dataset.id,
-                "name": dataset.name,
-                "description": dataset.description,
-                "table_name": dataset.table_name,
-                "created_at": dataset.created_at
-            }
-            
-        except Exception as e:
-            logger.error(f"Error getting dataset {dataset_id}: {e}")
-            return None

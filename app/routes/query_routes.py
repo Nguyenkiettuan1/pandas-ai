@@ -24,46 +24,17 @@ async def get_agent_suggestions(
     
     try:
         service = QueryService(db)
-        
-        # Validate dataset exists
-        dataset = await service.get_dataset_by_id(suggestions_request.dataset_id)
-        if not dataset:
-            return ResponseHandler.create_error_response(
-                error=ValueError(f"Dataset {suggestions_request.dataset_id} not found"),
-                message="Dataset not found",
-                response_type=ResponseType.VALIDATION_ERROR
-            )
-        
-        # Get dataset context
-        dataset_context = {
-            'table_name': dataset.get('table_name', ''),
-            'dataset_name': dataset.get('name', ''),
-            'description': dataset.get('description', '')
-        }
-        
-        # Get suggestions from agent router
-        suggestions = agent_router.get_agent_suggestions(suggestions_request.question, top_n=5)
-        recommended = agent_router.route_question(suggestions_request.question, dataset_context)
-        
-        response_data = {
-            "question": suggestions_request.question,
-            "dataset_id": suggestions_request.dataset_id,
-            "recommended_agent": recommended.value,
-            "all_suggestions": suggestions,
-            "dataset_context": dataset_context
-        }
-        
-        return ResponseHandler.create_success_response(
-            data=response_data,
-            message="Agent suggestions retrieved successfully",
-            response_type=ResponseType.AGENT_SUGGESTIONS
+        result = await service.get_agent_suggestions(
+            question=suggestions_request.question,
+            dataset_id=suggestions_request.dataset_id
         )
+        return result
         
     except Exception as e:
-        logger.error(f"Error getting agent suggestions: {e}")
+        logger.error(f"Unexpected error getting agent suggestions: {e}")
         return ResponseHandler.create_error_response(
             error=e,
-            message="Failed to get agent suggestions",
+            message="Unexpected error occurred while getting agent suggestions",
             response_type=ResponseType.AGENT_SUGGESTIONS
         )
 
@@ -79,56 +50,35 @@ async def process_query(
     try:
         service = QueryService(db)
         
-        # Auto-route if profile not specified
-        final_profile = profile_name
-        auto_routed = False
-        
-        if not profile_name:
-            # Get dataset context for routing
-            dataset = await service.get_dataset_by_id(query_request.dataset_id)
-            if dataset:
-                dataset_context = {
-                    'table_name': dataset.get('table_name', ''),
-                    'dataset_name': dataset.get('name', ''),
-                    'description': dataset.get('description', '')
-                }
-                
-                # Auto-route to best agent
-                suggested_agent = agent_router.route_question(query_request.question, dataset_context)
-                final_profile = suggested_agent.value
-                auto_routed = True
-                logger.info(f"Auto-routed to agent: {final_profile}")
-            else:
-                final_profile = "general_analyst"  # Fallback
-        
-        # Validate parameters
+        # Validate parameters and auto-route if needed
         validation_result = await service.validate_query_parameters(
             question=query_request.question,
             dataset_id=query_request.dataset_id,
-            profile_name=final_profile
+            profile_name=profile_name
         )
         
         # Check if validation failed
         if not ResponseHandler.is_success(validation_result):
             return validation_result
         
-        # Extract validated profile name
+        # Extract validated data
         validated_data = ResponseHandler.extract_data_safely(validation_result)
-        validated_profile = validated_data.get("validated_profile", final_profile)
+        final_profile = validated_data.get("validated_profile", "general_analyst")
+        auto_routed = validated_data.get("is_auto_routed", False)
         
         # Process the query
         result = await service.process_natural_language_query(
             question=query_request.question,
             dataset_id=query_request.dataset_id,
             session_id=query_request.session_id or str(uuid.uuid4()),
-            profile_name=validated_profile
+            profile_name=final_profile
         )
         
         # Add routing information to response
         if ResponseHandler.is_success(result):
             result_data = ResponseHandler.extract_data_safely(result)
             result_data["auto_routed"] = auto_routed
-            result_data["profile_used"] = validated_profile
+            result_data["profile_used"] = final_profile
             
             result = ResponseHandler.create_success_response(
                 data=result_data,
@@ -136,7 +86,7 @@ async def process_query(
                 response_type=result.get("response_type", ResponseType.QUERY_RESULT)
             )
         
-        logger.info(f"Query processed successfully with agent: {validated_profile}")
+        logger.info(f"Query processed successfully with agent: {final_profile}")
         return result
         
     except Exception as e:

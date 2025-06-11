@@ -166,9 +166,11 @@ class PandasAIAgent:
     ) -> Dict[str, Any]:
         """Process a natural language question against a dataset"""
         logger.info(f"Processing question for dataset {dataset_id}: {question[:100]}...")
-        
         try:
             start_time = time.time()
+            
+            # Track original profile name to determine if auto-routing occurred
+            original_profile_name = profile_name
             
             # Get dataset information for context
             dataset = self.db.query(Dataset).filter(Dataset.id == dataset_id).first()
@@ -244,34 +246,38 @@ class PandasAIAgent:
                             result = fallback_result
                         else:
                             result = f"Sorry, I couldn't process your question. Error: {str(agent_error)}"
-            
             execution_time = int((time.time() - start_time) * 1000)
             
             logger.info(f"Question processed successfully in {execution_time}ms")
             
+            # Convert result to serializable format
+            serializable_result = self._convert_result_to_serializable(result)
+            
             # Save query to database
             query = Query(
                 question=question,
-                result=str(result),
+                result=serializable_result,
                 execution_time=execution_time,
                 dataset_id=dataset_id
             )
             self.db.add(query)
             self.db.commit()
             self.db.refresh(query)
+              # Determine if it was auto-routed (profile_name was not provided initially)
+            was_auto_routed = original_profile_name is None
             
             response = {
                 "query_id": query.id,
                 "question": question,
-                "result": result,
+                "result": serializable_result,
                 "execution_time": execution_time,
                 "dataset_id": dataset_id,
                 "profile_used": profile_name,
                 "session_id": session_id,
-                "auto_routed": profile_name != profile_name  # Fixed logic
+                "auto_routed": was_auto_routed
             }
             
-            logger.debug(f"Response prepared: {type(result)}")
+            logger.debug(f"Response prepared with result type: {type(serializable_result)}")
             return response
             
         except Exception as e:
@@ -517,7 +523,7 @@ Hãy trả lời chính xác, cung cấp số liệu cụ thể và giải thíc
                 except Exception as e:
                     logger.warning(f"Failed to generate insight for question '{question}': {e}")
                     insights["ai_insights"].append({
-                        "question": question,                        "insight": f"Unable to generate insight: {str(e)}",
+                        "question": question,"insight": f"Unable to generate insight: {str(e)}",
                         "generated_successfully": False
                     })
             
@@ -574,3 +580,38 @@ Hãy trả lời chính xác, cung cấp số liệu cụ thể và giải thíc
         
         logger.debug(f"Listed {len(tools_info)} available tools")
         return tools_info
+    
+    def _convert_result_to_serializable(self, result: Any) -> str:
+        """Convert PandasAI result to serializable format"""
+        try:
+            # If it's a pandas DataFrame, convert to string representation
+            if hasattr(result, 'to_string'):
+                logger.info("Converting DataFrame result to string")
+                return result.to_string()
+            
+            # If it's a pandas Series, convert to string
+            elif hasattr(result, 'to_list'):
+                logger.info("Converting Series result to string")
+                return str(result.to_list())
+            
+            # If it's already a string, return as-is
+            elif isinstance(result, str):
+                return result
+            
+            # If it's a number, convert to string
+            elif isinstance(result, (int, float)):
+                return str(result)
+            
+            # If it's a dict or list, convert to JSON string
+            elif isinstance(result, (dict, list)):
+                import json
+                return json.dumps(result, ensure_ascii=False, indent=2)
+            
+            # For anything else, convert to string
+            else:
+                logger.warning(f"Converting unknown type {type(result)} to string")
+                return str(result)
+                
+        except Exception as e:
+            logger.error(f"Error converting result to serializable format: {e}")
+            return f"Result (type: {type(result).__name__}): {str(result)}"

@@ -20,6 +20,8 @@ class ResponseType(Enum):
     TOOL_EXECUTION = "tool_execution"
     QUERY_HISTORY = "query_history"
     VALIDATION = "validation"
+    VALIDATION_ERROR = "validation_error"
+    VALIDATION_SUCCESS = "validation_success"
     AGENT_SUGGESTIONS = "agent_suggestions" 
     GENERAL = "general"
 
