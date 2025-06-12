@@ -6,7 +6,6 @@ from app.core.config import settings
 from app.core.database import engine
 from app.core.logging_config import setup_logging, get_logger
 from app.routes import dataset_router, query_router, conversation_router
-from app.routes.demo_routes import demo_router
 from app.models import Base
 
 # Setup logging first
@@ -56,7 +55,6 @@ app.add_middleware(
 app.include_router(dataset_router, prefix="/api/v1")
 app.include_router(query_router, prefix="/api/v1")
 app.include_router(conversation_router, prefix="/api/v1")
-app.include_router(demo_router, prefix="/api/v1")
 
 @app.get("/")
 async def root():

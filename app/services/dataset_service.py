@@ -301,8 +301,7 @@ class DatasetService:
                 "recommendations": [
                     "Use natural language queries to explore this dataset",
                     "Consider using different agent profiles for specialized analysis",
-                    "Check query history to see previous analysis patterns"
-                ]
+                    "Check query history to see previous analysis patterns"                ]
             }
             
             # TODO: In production, add actual data analysis here:
@@ -317,6 +316,7 @@ class DatasetService:
             return ResponseHandler.create_dataset_insights_response(
                 insights=insights,
                 dataset_id=dataset_id,
+                profile_name="general_analyst",  # Default profile for dataset insights
                 success=True
             )
             

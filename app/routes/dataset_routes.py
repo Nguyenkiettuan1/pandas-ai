@@ -182,3 +182,58 @@ async def upload_csv_dataset(
             response_type=ResponseType.GENERAL,
             status_code=HTTPStatusCode.INTERNAL_SERVER_ERROR
         )
+
+@dataset_router.post("/auto-select/", response_model=Dict[str, Any])
+async def auto_select_datasets(
+    request: Dict[str, Any],
+    db: Session = Depends(get_db)
+):
+    """Auto-select relevant datasets based on a question"""
+    try:
+        question = request.get("question", "")
+        max_datasets = request.get("max_datasets", 3)
+        context_hint = request.get("context_hint")
+        
+        if not question:
+            return ResponseHandler.create_error_response(
+                error="Missing question",
+                message="Question is required for dataset selection",
+                response_type=ResponseType.VALIDATION_ERROR
+            )
+        
+        service = DatasetService(db)
+        
+        # Get all active datasets as candidates
+        datasets_response = await service.get_all_datasets()
+        if not ResponseHandler.is_success(datasets_response):
+            return datasets_response
+        
+        datasets_data = ResponseHandler.extract_data_safely(datasets_response)
+        available_dataset_ids = [d["id"] for d in datasets_data]
+        
+        if not available_dataset_ids:
+            return ResponseHandler.create_error_response(
+                error="No datasets available",
+                message="No active datasets found for selection",
+                response_type=ResponseType.VALIDATION_ERROR
+            )
+        
+        # Use dataset selection service
+        from app.services.dataset_selection_service import DatasetSelectionService
+        selection_service = DatasetSelectionService(db)
+        
+        selection_result = await selection_service.auto_select_datasets(
+            question=question,
+            available_datasets=available_dataset_ids,
+            max_datasets=max_datasets,
+            context_hint=context_hint
+        )
+        
+        return selection_result
+        
+    except Exception as e:
+        return ResponseHandler.create_error_response(
+            error=e,
+            message="Failed to auto-select datasets",
+            response_type=ResponseType.GENERAL
+        )

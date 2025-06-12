@@ -403,38 +403,38 @@ class PandasAIAgent:
         
         # Base prompt template for Vietnamese/English natural language + statistics
         base_prompt = f"""
-Bạn là một chuyên gia phân tích dữ liệu thông minh, có khả năng xử lý cả câu hỏi bằng tiếng Việt và tiếng Anh.
-Bạn có thể trả lời cả câu hỏi natural language và tính toán thống kê phức tạp.
+        Bạn là một chuyên gia phân tích dữ liệu thông minh, có khả năng xử lý cả câu hỏi bằng tiếng Việt và tiếng Anh.
+        Bạn có thể trả lời cả câu hỏi natural language và tính toán thống kê phức tạp.
 
-DATASET CONTEXT:
-- Tên dataset: {dataset.name}
-- Tên bảng: {dataset.table_name}
-- Mô tả: {dataset.description or 'Không có mô tả'}
+        DATASET CONTEXT:
+        - Tên dataset: {dataset.name}
+        - Tên bảng: {dataset.table_name}
+        - Mô tả: {dataset.description or 'Không có mô tả'}
 
-PROFILE CONTEXT:
-- Agent profile: {profile.name if profile else 'general_analyst'}
-- Capabilities: {', '.join(profile.capabilities) if profile and hasattr(profile, 'capabilities') else 'General analysis'}
+        PROFILE CONTEXT:
+        - Agent profile: {profile.name if profile else 'general_analyst'}
+        - Capabilities: {', '.join(profile.capabilities) if profile and hasattr(profile, 'capabilities') else 'General analysis'}
 
-INSTRUCTION:
-Hãy phân tích câu hỏi và cung cấp câu trả lời chính xác, chi tiết. 
+        INSTRUCTION:
+        Hãy phân tích câu hỏi và cung cấp câu trả lời chính xác, chi tiết. 
 
-Nếu câu hỏi yêu cầu:
-1. ĐẾM/TỔNG SỐ (count, total, tổng cộng, có bao nhiêu): Sử dụng pandas count(), nunique(), len()
-2. THỐNG KÊ MÔ TẢ (average, mean, trung bình, max, min, mức cao nhất, thấp nhất): Sử dụng mean(), max(), min(), describe()
-3. TOP/RANK (top, cao nhất, thấp nhất, xếp hạng): Sử dụng nlargest(), nsmallest(), sort_values()
-4. NHÓM/PHÂN LOẠI (theo nhóm, by category, group by): Sử dụng groupby()
-5. LỌC DỮ LIỆU (filter, where, điều kiện): Sử dụng boolean indexing
-6. TÍNH TOÁN (tính, calculate, computation): Thực hiện phép tính phù hợp
+        Nếu câu hỏi yêu cầu:
+        1. ĐẾM/TỔNG SỐ (count, total, tổng cộng, có bao nhiêu): Sử dụng pandas count(), nunique(), len()
+        2. THỐNG KÊ MÔ TẢ (average, mean, trung bình, max, min, mức cao nhất, thấp nhất): Sử dụng mean(), max(), min(), describe()
+        3. TOP/RANK (top, cao nhất, thấp nhất, xếp hạng): Sử dụng nlargest(), nsmallest(), sort_values()
+        4. NHÓM/PHÂN LOẠI (theo nhóm, by category, group by): Sử dụng groupby()
+        5. LỌC DỮ LIỆU (filter, where, điều kiện): Sử dụng boolean indexing
+        6. TÍNH TOÁN (tính, calculate, computation): Thực hiện phép tính phù hợp
 
-EXAMPLES của câu hỏi và cách xử lý:
-- "Tổng cộng có bao nhiêu sản phẩm?" → df.shape[0] hoặc len(df)
-- "Sản phẩm nào có giá mắc nhất?" → df.loc[df['gia'].idxmax(), 'ten_san_pham']
-- "Trung bình doanh thu theo tháng?" → df.groupby('thang')['doanh_thu'].mean()
-- "Top 5 khách hàng mua nhiều nhất?" → df.groupby('khach_hang')['so_luong'].sum().nlargest(5)
+        EXAMPLES của câu hỏi và cách xử lý:
+        - "Tổng cộng có bao nhiêu sản phẩm?" → df.shape[0] hoặc len(df)
+        - "Sản phẩm nào có giá mắc nhất?" → df.loc[df['gia'].idxmax(), 'ten_san_pham']
+        - "Trung bình doanh thu theo tháng?" → df.groupby('thang')['doanh_thu'].mean()
+        - "Top 5 khách hàng mua nhiều nhất?" → df.groupby('khach_hang')['so_luong'].sum().nlargest(5)
 
-QUESTION: {question}
+        QUESTION: {question}
 
-Hãy trả lời chính xác, cung cấp số liệu cụ thể và giải thích kết quả."""
+        Hãy trả lời chính xác, cung cấp số liệu cụ thể và giải thích kết quả."""
 
         # Add profile-specific enhancements
         if profile and hasattr(profile, 'domain_knowledge') and profile.domain_knowledge:

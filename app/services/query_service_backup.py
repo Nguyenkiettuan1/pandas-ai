@@ -58,30 +58,42 @@ class QueryService:
             intent_analysis = self.intent_analyzer.analyze_complete_query(question)
             logger.info(f"Intent analysis: {intent_analysis['intent_analysis']['primary_intent']} "
                        f"(scope: {intent_analysis['scope_analysis']['recommended_scope']})")
+                  # Step 1: Resolve query context and get available datasets
+        context_resolution_start = time.time()
+        
+        if dataset_id:
+            # Legacy mode - explicit dataset
+            context_info = {
+                "strategy": "explicit",
+                "available_datasets": [dataset_id],
+                "default_dataset": dataset_id,
+                "context_metadata": {}
+            }
+            context_type = "explicit"
+        else:
+            # Context-aware mode
+            context_response = await self.context_service.resolve_query_context(
+                session_id=session_id,
+                workspace_id=workspace_id,
+                dataset_id=dataset_id
+            )
             
-            # Step 1: Resolve query context and get available datasets
-            context_resolution_start = time.time()
-            
-            if dataset_id:
-                # Legacy mode - explicit dataset
-                context_info = {
-                    "strategy": "explicit",
-                    "available_datasets": [dataset_id],
-                    "default_dataset": dataset_id,
-                    "context_metadata": {}
-                }
-                context_type = "explicit"
-            else:
-                # Context-aware mode
-                context_response = await self.context_service.resolve_query_context(
-                    session_id=session_id,
-                    workspace_id=workspace_id,
-                    dataset_id=dataset_id
-                )
-                
-                if not ResponseHandler.is_success(context_response):
+            if not ResponseHandler.is_success(context_response):
+                # If context resolution fails but auto_select is enabled, try to find all datasets
+                if auto_select:
+                    logger.info("Context resolution failed, trying auto-discovery of all datasets")
+                    all_datasets = self.db.query(Dataset).filter(Dataset.is_active == True).all()
+                    available_datasets = [d.id for d in all_datasets]
+                    context_info = {
+                        "strategy": "auto_discovery", 
+                        "available_datasets": available_datasets,
+                        "default_dataset": available_datasets[0] if available_datasets else None,
+                        "context_metadata": {}
+                    }
+                    context_type = "auto_discovery"
+                else:
                     return context_response
-                
+            else:
                 context_info = ResponseHandler.extract_data_safely(context_response)
                 
                 if session_id:
